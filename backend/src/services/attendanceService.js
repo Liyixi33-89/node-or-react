@@ -145,16 +145,7 @@ class AttendanceService {
         };
       }
 
-      // 检查是否已经签退
-      if (record.status === 'checked_out') {
-        return {
-          success: false,
-          message: '今天已经签退过了',
-          data: this.formatRecord(record)
-        };
-      }
-
-      // 更新签退时间
+      // 更新签退时间（允许多次签退，每次更新时间）
       record.checkOutTime = now.toDate();
       record.status = 'checked_out';
 
@@ -170,13 +161,17 @@ class AttendanceService {
         const overtime = this.calculateOvertime(now.toDate());
         record.overtimeHours = overtime.hours;
         record.overtimeMinutes = overtime.minutes;
+      } else {
+        // 如果不是加班时间，清空加班时长
+        record.overtimeHours = 0;
+        record.overtimeMinutes = 0;
       }
 
       await record.save();
 
       const message = record.isOvertime 
-        ? `签退成功，您今天加班了${record.overtimeHours}小时${record.overtimeMinutes}分钟` 
-        : '签退成功';
+        ? `签退成功，工作时长：${record.workHours}小时${record.workMinutes}分钟，加班：${record.overtimeHours}小时${record.overtimeMinutes}分钟` 
+        : `签退成功，工作时长：${record.workHours}小时${record.workMinutes}分钟`;
 
       return {
         success: true,

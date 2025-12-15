@@ -12,10 +12,30 @@
   padding: 20px 0;
 }
 
+.user-info-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 15px;
+}
+
+.user-info-header > div:first-child {
+  text-align: left;
+}
+
+.user-welcome {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  margin-top: 5px;
+  opacity: 0.9;
+}
+
 .header h1 {
   font-size: 32px;
   font-weight: bold;
-  margin-bottom: 10px;
+  margin-bottom: 5px;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
 }
 
@@ -102,6 +122,20 @@
   font-size: 16px;
 }
 
+.work-duration.current-work {
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(56, 239, 125, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(56, 239, 125, 0.8);
+  }
+}
+
 .overtime-duration {
   margin-top: 8px;
   padding: 12px;
@@ -174,6 +208,15 @@
   padding: 20px 0;
   font-size: 12px;
   opacity: 0.8;
+}
+
+.footer p {
+  margin: 4px 0;
+}
+
+.footer .user-id {
+  font-size: 10px;
+  opacity: 0.6;
 }
 
 /* 响应式设计 */

@@ -4,6 +4,7 @@ const bodyParser = require('koa-bodyparser');
 const cors = require('@koa/cors');
 const connectDB = require('./config/database');
 const attendanceRouter = require('./routes/attendance');
+const userRouter = require('./routes/user');
 
 const app = new Koa();
 const router = new Router();
@@ -30,6 +31,7 @@ app.use(async (ctx, next) => {
 });
 
 // 路由
+router.use('/api/user', userRouter.routes());
 router.use('/api/attendance', attendanceRouter.routes());
 
 // 健康检查

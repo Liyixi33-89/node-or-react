@@ -30,6 +30,28 @@ api.interceptors.response.use(
 );
 
 // API方法
+export const userAPI = {
+  // 注册
+  register: (username, password, name) => {
+    return api.post('/user/register', { username, password, name });
+  },
+  
+  // 登录
+  login: (username, password) => {
+    return api.post('/user/login', { username, password });
+  },
+  
+  // 快速登录
+  quickLogin: (username) => {
+    return api.post('/user/quick-login', { username });
+  },
+  
+  // 获取用户信息
+  getUserInfo: (userId) => {
+    return api.get(`/user/info/${userId}`);
+  }
+};
+
 export const attendanceAPI = {
   // 签到
   checkIn: (userId) => {
