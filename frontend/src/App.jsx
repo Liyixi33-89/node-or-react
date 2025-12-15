@@ -12,6 +12,7 @@ function App() {
   const [status, setStatus] = useState(null);
   const [currentTime, setCurrentTime] = useState(moment().format('HH:mm:ss'));
   const [currentWorkDuration, setCurrentWorkDuration] = useState(null);
+  const [todayRecords, setTodayRecords] = useState([]);
 
   // 检查登录状态
   useEffect(() => {
@@ -67,19 +68,35 @@ function App() {
     }
   };
 
+  // 获取当前用户今日签到数据
+  const fetchTodayRecords = async () => {
+    if (!userInfo) return;
+    
+    try {
+      const result = await attendanceAPI.getRecords(userInfo.userId, 1);
+      if (result.success) {
+        setTodayRecords(result.data);
+        console.log('今日签到数据:', result.data);
+      }
+    } catch (error) {
+      console.error('获取今日签到数据失败:', error);
+    }
+  };
+
   // 签到
   const handleCheckIn = async () => {
     if (!userInfo) return;
     
     setLoading(true);
     try {
-      const result = await attendanceAPI.checkIn(userInfo.userId);
+        const result = await attendanceAPI.checkIn(userInfo.userId);
       if (result.success) {
         Toast.show({
           icon: 'success',
           content: result.message,
         });
         await fetchStatus();
+        await fetchTodayRecords();
       } else {
         Toast.show({
           icon: 'fail',
@@ -102,13 +119,14 @@ function App() {
     
     setLoading(true);
     try {
-      const result = await attendanceAPI.checkOut(userInfo.userId);
+        const result = await attendanceAPI.checkOut(userInfo.userId);
       if (result.success) {
         Toast.show({
           icon: 'success',
           content: result.message,
         });
         await fetchStatus();
+        await fetchTodayRecords();
       } else {
         Toast.show({
           icon: 'fail',
@@ -129,12 +147,14 @@ function App() {
   useEffect(() => {
     if (!userInfo) return;
     
-    // 立即获取一次状态
+    // 立即获取一次状态和今日数据
     fetchStatus();
+    fetchTodayRecords();
     
-    // 每30秒自动刷新一次状态（可选，用于多设备同步）
+    // 每30秒自动刷新一次状态和今日数据
     const statusTimer = setInterval(() => {
       fetchStatus();
+      fetchTodayRecords();
     }, 30000);
     
     return () => clearInterval(statusTimer);
@@ -252,11 +272,6 @@ function App() {
                       工作时长: {status.workDuration.total}
                     </div>
                   )}
-                  {status.isOvertime && status.overtimeDuration && (
-                    <div className="overtime-duration">
-                      🌙 加班时长: {status.overtimeDuration.total}
-                    </div>
-                  )}
                 </>
               )}
             </div>
@@ -289,16 +304,42 @@ function App() {
           </Space>
         </div>
 
-        <div className="tips">
-          <p>💡 温馨提示</p>
-          <p>• 每天早上6点开始新的考勤周期</p>
-          <p>• 每天只能签到一次</p>
-          <p>• 签到后才能进行签退操作</p>
-          <p>• 签退可以多次点击，每次更新工作时长</p>
-          <p>• 晚上7点后签退将记录为加班</p>
-          <p>• 签退后会自动计算工作时长和加班时长</p>
-        </div>
-      </div>
+        <div className="today-records">
+          <h3>📊 我的签到记录</h3>
+          <div className="records-table">
+            {todayRecords.length === 0 ? (
+              <div className="no-data">暂无签到数据</div>
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th>日期</th>
+                    <th>签到时间</th>
+                    <th>签退时间</th>
+                    <th>工作时长</th>
+                    <th>状态</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {todayRecords.map((record, index) => (
+                    <tr key={index}>
+                      <td>{record.date}</td>
+                      <td>{record.checkInTime || '-'}</td>
+                      <td>{record.checkOutTime || '-'}</td>
+                      <td>{record.workDuration ? record.workDuration.total : '-'}</td>
+                      <td>
+                        <span className={`status-badge status-${record.status}`}>
+                          {record.status === 'checked_in' ? '已签到' : 
+                           record.status === 'checked_out' ? '已签退' : '未签到'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>      </div>
 
       <div className="footer">
         <p>用户: {userInfo.username} ({userInfo.name})</p>

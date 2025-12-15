@@ -86,4 +86,13 @@ router.get('/records/:userId', async (ctx) => {
   ctx.body = result;
 });
 
+/**
+ * 获取今日所有签到数据接口
+ * GET /api/attendance/today-all
+ */
+router.get('/today-all', async (ctx) => {
+  const result = await attendanceService.getTodayAllRecords();
+  ctx.body = result;
+});
+
 module.exports = router;

@@ -39,35 +39,7 @@ class AttendanceService {
     return now.format('YYYY-MM-DD');
   }
 
-  /**
-   * 判断是否加班（晚上7点后签退算加班）
-   * @param {Date} checkOutTime - 签退时间
-   * @returns {boolean}
-   */
-  isOvertimeCheckout(checkOutTime) {
-    const checkOut = moment(checkOutTime);
-    return checkOut.hour() >= 19; // 19点即晚上7点
-  }
 
-  /**
-   * 计算加班时长
-   * @param {Date} checkOutTime - 签退时间
-   * @returns {Object} 加班时长
-   */
-  calculateOvertime(checkOutTime) {
-    const checkOut = moment(checkOutTime);
-    const overtimeStart = checkOut.clone().hour(19).minute(0).second(0);
-    
-    if (checkOut.isBefore(overtimeStart)) {
-      return { hours: 0, minutes: 0 };
-    }
-    
-    const duration = moment.duration(checkOut.diff(overtimeStart));
-    return {
-      hours: Math.floor(duration.asHours()),
-      minutes: duration.minutes()
-    };
-  }
 
   /**
    * 签到
@@ -155,23 +127,9 @@ class AttendanceService {
       record.workHours = Math.floor(duration.asHours());
       record.workMinutes = duration.minutes();
 
-      // 判断是否加班（晚上7点后签退）
-      record.isOvertime = this.isOvertimeCheckout(now.toDate());
-      if (record.isOvertime) {
-        const overtime = this.calculateOvertime(now.toDate());
-        record.overtimeHours = overtime.hours;
-        record.overtimeMinutes = overtime.minutes;
-      } else {
-        // 如果不是加班时间，清空加班时长
-        record.overtimeHours = 0;
-        record.overtimeMinutes = 0;
-      }
-
       await record.save();
 
-      const message = record.isOvertime 
-        ? `签退成功，工作时长：${record.workHours}小时${record.workMinutes}分钟，加班：${record.overtimeHours}小时${record.overtimeMinutes}分钟` 
-        : `签退成功，工作时长：${record.workHours}小时${record.workMinutes}分钟`;
+      const message = `签退成功，工作时长：${record.workHours}小时${record.workMinutes}分钟`;
 
       return {
         success: true,
@@ -254,6 +212,32 @@ class AttendanceService {
   }
 
   /**
+   * 获取今日所有签到数据
+   * @returns {Object} 今日所有签到记录
+   */
+  async getTodayAllRecords() {
+    try {
+      const dateKey = this.getCurrentEffectiveDate();
+      
+      // 查找今天所有的签到记录
+      const records = await Attendance.find({ date: dateKey }).sort({ checkInTime: -1 });
+      
+      return {
+        success: true,
+        message: '获取今日签到数据成功',
+        data: records.map(record => this.formatRecord(record))
+      };
+    } catch (error) {
+      console.error('获取今日签到数据失败:', error);
+      return {
+        success: false,
+        message: '获取今日签到数据失败，请稍后重试',
+        data: []
+      };
+    }
+  }
+
+  /**
    * 格式化记录数据
    * @param {Object} record - 数据库记录
    * @returns {Object} 格式化后的记录
@@ -274,16 +258,6 @@ class AttendanceService {
         minutes: record.workMinutes,
         total: record.getWorkDurationText()
       };
-
-      // 如果有加班，添加加班信息
-      if (record.isOvertime) {
-        formatted.isOvertime = true;
-        formatted.overtimeDuration = {
-          hours: record.overtimeHours,
-          minutes: record.overtimeMinutes,
-          total: record.getOvertimeDurationText()
-        };
-      }
     }
 
     return formatted;

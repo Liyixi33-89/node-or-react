@@ -5,12 +5,16 @@ const cors = require('@koa/cors');
 const connectDB = require('./config/database');
 const attendanceRouter = require('./routes/attendance');
 const userRouter = require('./routes/user');
+const schedulerService = require('./services/schedulerService');
 
 const app = new Koa();
 const router = new Router();
 
 // 连接数据库
 connectDB();
+
+// 启动定时任务服务
+schedulerService.start();
 
 // 中间件
 app.use(cors());
@@ -47,6 +51,19 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+});
+
+// 优雅关闭
+process.on('SIGTERM', () => {
+  console.log('收到 SIGTERM 信号，正在关闭服务...');
+  schedulerService.stop();
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('收到 SIGINT 信号，正在关闭服务...');
+  schedulerService.stop();
+  process.exit(0);
 });
 
 module.exports = app;

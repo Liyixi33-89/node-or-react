@@ -71,6 +71,11 @@ export const attendanceAPI = {
   // 获取记录
   getRecords: (userId, days = 7) => {
     return api.get(`/attendance/records/${userId}?days=${days}`);
+  },
+  
+  // 获取今日所有签到数据
+  getTodayAll: () => {
+    return api.get('/attendance/today-all');
   }
 };
 

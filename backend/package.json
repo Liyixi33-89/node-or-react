@@ -7,6 +7,7 @@
     "dev": "cross-env NODE_ENV=development nodemon src/app.js",
     "start": "cross-env NODE_ENV=production node src/app.js",
     "test:db": "node test-db.js",
+    "test:scheduler": "node test-scheduler.js",
     "pm2:start": "pm2 start ecosystem.config.js",
     "pm2:stop": "pm2 stop ecosystem.config.js",
     "pm2:restart": "pm2 restart ecosystem.config.js",
@@ -21,7 +22,8 @@
     "koa-bodyparser": "^4.4.1",
     "koa-router": "^12.0.1",
     "moment": "^2.29.4",
-    "mongoose": "^8.0.3"
+    "mongoose": "^8.0.3",
+    "node-schedule": "^2.1.1"
   },
   "devDependencies": {
     "cross-env": "^7.0.3",
