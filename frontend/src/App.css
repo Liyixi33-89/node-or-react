@@ -1,0 +1,201 @@
+.app-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+}
+
+.header {
+  text-align: center;
+  color: white;
+  margin-bottom: 30px;
+  padding: 20px 0;
+}
+
+.header h1 {
+  font-size: 32px;
+  font-weight: bold;
+  margin-bottom: 10px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.current-time {
+  font-size: 48px;
+  font-weight: bold;
+  margin: 15px 0;
+  letter-spacing: 2px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.current-date {
+  font-size: 16px;
+  opacity: 0.9;
+}
+
+.content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.status-card {
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  background: white;
+}
+
+.status-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.status-indicator {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.status-text {
+  font-size: 20px;
+  font-weight: bold;
+  color: #333;
+}
+
+.time-info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.time-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #666;
+  font-size: 14px;
+}
+
+.work-duration {
+  margin-top: 8px;
+  padding: 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 8px;
+  text-align: center;
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.overtime-duration {
+  margin-top: 8px;
+  padding: 12px;
+  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+  color: #333;
+  border-radius: 8px;
+  text-align: center;
+  font-weight: bold;
+  font-size: 16px;
+  animation: glow 2s ease-in-out infinite;
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(250, 112, 154, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(250, 112, 154, 0.8);
+  }
+}
+
+.action-buttons {
+  margin: 20px 0;
+}
+
+.action-button {
+  height: 56px;
+  border-radius: 28px;
+  font-size: 18px;
+  font-weight: bold;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+}
+
+.action-button:active {
+  transform: scale(0.98);
+}
+
+.checkin-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.checkout-button {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.tips {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  padding: 16px;
+  color: #666;
+  font-size: 14px;
+  line-height: 1.8;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.tips p:first-child {
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.tips p {
+  margin: 4px 0;
+}
+
+.footer {
+  text-align: center;
+  color: white;
+  padding: 20px 0;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+/* 响应式设计 */
+@media (max-width: 480px) {
+  .app-container {
+    padding: 15px;
+  }
+
+  .header h1 {
+    font-size: 28px;
+  }
+
+  .current-time {
+    font-size: 40px;
+  }
+
+  .current-date {
+    font-size: 14px;
+  }
+}
+
+/* antd-mobile 样式覆盖 */
+.adm-button-disabled {
+  opacity: 0.5;
+}
