@@ -105,24 +105,53 @@ echo ""
 
 # 1. 更新系统
 echo -e "${YELLOW}[1/9] 更新系统...${NC}"
-# 检查是否存在有问题的仓库（如 Docker CE）
-if yum repolist 2>&1 | grep -q "docker-ce-stable"; then
-    echo "  检测到 Docker CE 仓库，尝试禁用后更新..."
-    # 先尝试禁用 Docker 仓库更新
-    if yum update -y --disablerepo=docker-ce-stable 2>/dev/null; then
-        echo "  ✅ 系统更新完成（已跳过 Docker 仓库）"
+
+# 检查并修复 Docker CE 仓库问题
+if [ -f /etc/yum.repos.d/docker-ce.repo ]; then
+    echo "  检测到 Docker CE 仓库配置..."
+    # 测试 Docker 仓库是否可访问
+    if ! curl -s --connect-timeout 5 https://download.docker.com/linux/centos/8/x86_64/stable/repodata/repomd.xml > /dev/null 2>&1; then
+        echo "  ⚠️  Docker 官方仓库无法访问，替换为阿里云镜像..."
+        # 备份原配置
+        cp /etc/yum.repos.d/docker-ce.repo /etc/yum.repos.d/docker-ce.repo.bak 2>/dev/null || true
+        # 替换为阿里云镜像
+        cat > /etc/yum.repos.d/docker-ce.repo <<'EOF'
+[docker-ce-stable]
+name=Docker CE Stable - $basearch
+baseurl=https://mirrors.aliyun.com/docker-ce/linux/centos/$releasever/$basearch/stable
+enabled=1
+gpgcheck=1
+gpgkey=https://mirrors.aliyun.com/docker-ce/linux/centos/gpg
+
+[docker-ce-stable-debuginfo]
+name=Docker CE Stable - Debuginfo $basearch
+baseurl=https://mirrors.aliyun.com/docker-ce/linux/centos/$releasever/debug-$basearch/stable
+enabled=0
+gpgcheck=1
+gpgkey=https://mirrors.aliyun.com/docker-ce/linux/centos/gpg
+
+[docker-ce-stable-source]
+name=Docker CE Stable - Sources
+baseurl=https://mirrors.aliyun.com/docker-ce/linux/centos/$releasever/source/stable
+enabled=0
+gpgcheck=1
+gpgkey=https://mirrors.aliyun.com/docker-ce/linux/centos/gpg
+EOF
+        echo "  ✅ 已替换为阿里云 Docker 镜像"
+        yum clean all > /dev/null 2>&1
     else
-        echo "  尝试跳过所有有问题的仓库..."
-        yum update -y --skip-broken
+        echo "  ✓ Docker 仓库可访问"
     fi
+fi
+
+# 执行系统更新
+echo "  更新系统软件包..."
+if yum update -y 2>/dev/null; then
+    echo "  ✅ 系统更新完成"
 else
-    # 正常更新
-    if yum update -y; then
-        echo "  ✅ 系统更新完成"
-    else
-        echo -e "  ${YELLOW}⚠️  系统更新遇到问题，尝试跳过有问题的软件包...${NC}"
-        yum update -y --skip-broken
-    fi
+    echo -e "  ${YELLOW}⚠️  系统更新遇到问题，尝试跳过有问题的软件包...${NC}"
+    yum update -y --skip-broken
+    echo "  ✅ 系统更新完成（已跳过部分软件包）"
 fi
 
 # 2. 安装基础工具
@@ -284,12 +313,18 @@ if ! command -v nginx &> /dev/null; then
         timeout 30 yum makecache fast > /dev/null 2>&1 || echo "  ⚠️  缓存刷新超时，继续安装..."
         
         echo "  安装 Nginx（使用阿里云 EPEL）..."
-        if timeout 120 yum install -y nginx; then
+        # 如果存在 Docker 仓库，禁用它以避免安装被阻塞
+        DISABLE_REPOS=""
+        if [ -f /etc/yum.repos.d/docker-ce.repo ]; then
+            DISABLE_REPOS="--disablerepo=docker-ce-stable"
+        fi
+        
+        if timeout 120 yum install -y nginx $DISABLE_REPOS; then
             echo "  ✅ Nginx 安装完成（使用阿里云 EPEL）"
         else
             echo -e "  ${YELLOW}⚠️  阿里云 EPEL 安装失败，尝试使用官方仓库...${NC}"
             create_nginx_repo
-            timeout 120 yum install -y nginx
+            timeout 120 yum install -y nginx $DISABLE_REPOS
             echo "  ✅ Nginx 安装完成（使用官方仓库）"
         fi
     else
@@ -304,12 +339,18 @@ if ! command -v nginx &> /dev/null; then
         fi
         
         echo "  安装 Nginx..."
-        if yum install -y nginx; then
+        # 如果存在 Docker 仓库，禁用它以避免安装被阻塞
+        DISABLE_REPOS=""
+        if [ -f /etc/yum.repos.d/docker-ce.repo ]; then
+            DISABLE_REPOS="--disablerepo=docker-ce-stable"
+        fi
+        
+        if yum install -y nginx $DISABLE_REPOS; then
             echo "  ✅ Nginx 安装完成"
         else
             echo -e "  ${RED}❌ Nginx 安装失败，尝试使用官方仓库...${NC}"
             create_nginx_repo
-            yum install -y nginx
+            yum install -y nginx $DISABLE_REPOS
             echo "  ✅ Nginx 安装完成（使用官方仓库）"
         fi
     fi
