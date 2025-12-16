@@ -291,12 +291,32 @@ fi
 
 # 函数：创建 Nginx 官方仓库配置
 create_nginx_repo() {
-    cat > /etc/yum.repos.d/nginx.repo <<'EOF'
+    # 检测系统版本，阿里云 Linux 3 兼容 RHEL 8
+    local centos_ver="8"
+    if [ -f /etc/os-release ]; then
+        if grep -q "Alibaba Cloud Linux" /etc/os-release; then
+            centos_ver="8"
+        elif grep -q "CentOS Linux 7" /etc/os-release; then
+            centos_ver="7"
+        fi
+    fi
+    
+    # 优先尝试阿里云镜像（国内速度快）
+    cat > /etc/yum.repos.d/nginx.repo <<EOF
 [nginx-stable]
 name=nginx stable repo
-baseurl=http://nginx.org/packages/centos/$releasever/$basearch/
+baseurl=https://mirrors.aliyun.com/nginx/centos/${centos_ver}/\$basearch/
 gpgcheck=1
 enabled=1
+gpgkey=https://nginx.org/keys/nginx_signing.key
+module_hotfixes=true
+priority=1
+
+[nginx-stable-official]
+name=nginx stable repo (official)
+baseurl=http://nginx.org/packages/centos/${centos_ver}/\$basearch/
+gpgcheck=1
+enabled=0
 gpgkey=https://nginx.org/keys/nginx_signing.key
 module_hotfixes=true
 EOF
