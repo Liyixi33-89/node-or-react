@@ -269,12 +269,13 @@ if ! command -v nginx &> /dev/null; then
     # 检查是否是阿里云服务器（已有 epel-aliyuncs-release）
     if rpm -qa | grep -q epel-aliyuncs-release; then
         echo "  ✓ 检测到阿里云 EPEL 仓库"
-        echo "  刷新 yum 缓存..."
-        yum clean all > /dev/null 2>&1
-        yum makecache > /dev/null 2>&1
+        echo "  快速刷新 yum 缓存..."
+        # 使用快速模式，避免卡住
+        yum clean expire-cache > /dev/null 2>&1
+        timeout 30 yum makecache fast > /dev/null 2>&1 || echo "  ⚠️  缓存刷新超时，继续安装..."
         
         echo "  安装 Nginx（使用阿里云 EPEL）..."
-        if yum install -y nginx; then
+        if timeout 120 yum install -y nginx; then
             echo "  ✅ Nginx 安装完成（使用阿里云 EPEL）"
         else
             echo -e "  ${YELLOW}⚠️  阿里云 EPEL 安装失败，尝试使用官方仓库...${NC}"
@@ -288,7 +289,7 @@ enabled=1
 gpgkey=https://nginx.org/keys/nginx_signing.key
 module_hotfixes=true
 EOF
-            yum install -y nginx
+            timeout 120 yum install -y nginx
             echo "  ✅ Nginx 安装完成（使用官方仓库）"
         fi
     else
