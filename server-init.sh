@@ -48,20 +48,70 @@ systemctl enable pm2-root
 # 5. 安装 MongoDB
 echo -e "${YELLOW}[5/9] 安装 MongoDB...${NC}"
 if ! command -v mongod &> /dev/null; then
+    # 检测系统版本
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        OS_NAME=$ID
+        OS_VERSION=$VERSION_ID
+    fi
+    
+    echo "检测到系统: $OS_NAME $OS_VERSION"
+    
+    # 根据系统选择合适的 MongoDB 版本
+    if [[ "$OS_NAME" == "alinux" ]] || [[ "$OS_NAME" == "alios" ]]; then
+        # 阿里云 Linux 使用 CentOS 7 的仓库
+        REDHAT_VERSION=7
+    elif [[ "$OS_NAME" == "centos" ]] || [[ "$OS_NAME" == "rhel" ]]; then
+        REDHAT_VERSION=${OS_VERSION%%.*}
+    else
+        # 默认使用 7
+        REDHAT_VERSION=7
+    fi
+    
+    echo "使用 Red Hat $REDHAT_VERSION 的 MongoDB 仓库"
+    
+    # 创建 MongoDB 仓库配置
     cat > /etc/yum.repos.d/mongodb-org-6.0.repo <<EOF
 [mongodb-org-6.0]
 name=MongoDB Repository
-baseurl=https://repo.mongodb.org/yum/redhat/\$releasever/mongodb-org/6.0/x86_64/
+baseurl=https://repo.mongodb.org/yum/redhat/$REDHAT_VERSION/mongodb-org/6.0/x86_64/
 gpgcheck=1
 enabled=1
 gpgkey=https://www.mongodb.org/static/pgp/server-6.0.asc
 EOF
-    yum install -y mongodb-org
+    
+    # 尝试安装 MongoDB
+    if ! yum install -y mongodb-org; then
+        echo -e "${YELLOW}MongoDB 6.0 安装失败，尝试安装 MongoDB 5.0...${NC}"
+        
+        # 尝试 MongoDB 5.0
+        cat > /etc/yum.repos.d/mongodb-org-5.0.repo <<EOF
+[mongodb-org-5.0]
+name=MongoDB Repository
+baseurl=https://repo.mongodb.org/yum/redhat/$REDHAT_VERSION/mongodb-org/5.0/x86_64/
+gpgcheck=1
+enabled=1
+gpgkey=https://www.mongodb.org/static/pgp/server-5.0.asc
+EOF
+        
+        if ! yum install -y mongodb-org; then
+            echo -e "${RED}MongoDB 官方仓库安装失败，使用 EPEL 仓库安装...${NC}"
+            yum install -y epel-release
+            yum install -y mongodb-server mongodb
+        fi
+    fi
 fi
 
-systemctl start mongod
-systemctl enable mongod
-echo "✅ MongoDB 已启动"
+# 启动 MongoDB
+systemctl start mongod 2>/dev/null || systemctl start mongodb 2>/dev/null
+systemctl enable mongod 2>/dev/null || systemctl enable mongodb 2>/dev/null
+
+# 验证 MongoDB 是否运行
+if systemctl is-active --quiet mongod || systemctl is-active --quiet mongodb; then
+    echo "✅ MongoDB 已启动"
+else
+    echo -e "${RED}⚠️  MongoDB 启动失败，请手动检查${NC}"
+fi
 
 # 6. 安装 Nginx
 echo -e "${YELLOW}[6/9] 安装 Nginx...${NC}"
