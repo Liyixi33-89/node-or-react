@@ -1,0 +1,176 @@
+name: 🚀 自动部署到生产服务器
+
+on:
+  push:
+    branches:
+      - test  # 推送到 test 分支时触发
+  pull_request:
+    branches:
+      - test  # PR 合并到 test 分支时触发
+    types: [closed]
+
+jobs:
+  deploy:
+    # 只在 PR 合并或直接推送时执行
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📦 检出代码
+        uses: actions/checkout@v3
+        
+      - name: 🔧 设置 Node.js 环境
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: |
+            frontend/package-lock.json
+            backend/package-lock.json
+          
+      - name: 📦 安装前端依赖
+        run: |
+          cd frontend
+          npm ci
+          
+      - name: 🏗️ 构建前端
+        run: |
+          cd frontend
+          npm run build
+          
+      - name: 📤 部署到服务器
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: 22
+          script: |
+            echo "=========================================="
+            echo "🚀 开始自动化部署"
+            echo "时间: $(date '+%Y-%m-%d %H:%M:%S')"
+            echo "=========================================="
+            
+            # 项目目录
+            PROJECT_DIR="/var/www/taskmanager"
+            BACKUP_DIR="/var/www/backups"
+            TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+            
+            # 创建必要的目录
+            mkdir -p $BACKUP_DIR
+            mkdir -p /var/log/taskmanager
+            
+            # 备份当前版本
+            if [ -d "$PROJECT_DIR" ]; then
+              echo "📦 备份当前版本..."
+              tar -czf $BACKUP_DIR/backup_$TIMESTAMP.tar.gz -C /var/www taskmanager 2>/dev/null || echo "备份失败，继续部署..."
+              echo "✅ 备份完成"
+              
+              # 只保留最近5个备份
+              cd $BACKUP_DIR
+              ls -t backup_*.tar.gz | tail -n +6 | xargs -r rm
+            fi
+            
+            # 进入项目目录（如果不存在则克隆）
+            if [ ! -d "$PROJECT_DIR" ]; then
+              echo "📥 首次部署，克隆项目..."
+              cd /var/www
+              git clone https://github.com/Liyixi33-89/node-or-react.git taskmanager
+              cd taskmanager
+            else
+              echo "📥 拉取最新代码..."
+              cd $PROJECT_DIR
+            fi
+            
+            # 拉取最新代码
+            git fetch origin
+            git checkout test
+            git pull origin test
+            
+            echo "✅ 代码更新完成"
+            
+            # 安装后端依赖
+            echo "📦 安装后端依赖..."
+            cd backend
+            npm install --production
+            
+            # 重启后端服务
+            echo "🔄 重启后端服务..."
+            if pm2 describe taskmanager-backend > /dev/null 2>&1; then
+              pm2 restart taskmanager-backend
+            else
+              pm2 start ecosystem.config.js
+            fi
+            
+            pm2 save
+            
+            # 等待服务启动
+            sleep 3
+            
+            # 检查服务状态
+            echo "🔍 检查服务状态..."
+            pm2 list
+            
+            echo "=========================================="
+            echo "✅ 后端部署完成！"
+            echo "=========================================="
+            
+      - name: 📤 上传前端构建文件
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: 22
+          source: "frontend/dist/*"
+          target: "/var/www/taskmanager/frontend/"
+          strip_components: 1
+          rm: true
+          
+      - name: 🔄 重启 Nginx
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: 22
+          script: |
+            echo "🔄 重启 Nginx..."
+            nginx -t && systemctl reload nginx
+            echo "✅ Nginx 重启完成"
+            
+      - name: 🏥 健康检查
+        run: |
+          echo "⏳ 等待服务完全启动..."
+          sleep 5
+          
+          echo "🔍 检查后端 API..."
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://${{ secrets.SERVER_HOST }}:3000/api/health || echo "000")
+          
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "404" ]; then
+            echo "✅ 后端服务正常"
+          else
+            echo "⚠️ 后端服务可能异常 (HTTP $HTTP_CODE)"
+          fi
+          
+          echo "🔍 检查前端页面..."
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://${{ secrets.SERVER_HOST }} || echo "000")
+          
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ 前端页面正常"
+          else
+            echo "⚠️ 前端页面可能异常 (HTTP $HTTP_CODE)"
+          fi
+          
+      - name: 📊 部署摘要
+        if: always()
+        run: |
+          echo "=========================================="
+          echo "📊 部署摘要"
+          echo "=========================================="
+          echo "🌿 分支: ${{ github.ref_name }}"
+          echo "📝 提交: ${{ github.sha }}"
+          echo "👤 提交者: ${{ github.actor }}"
+          echo "💬 提交信息: ${{ github.event.head_commit.message }}"
+          echo "🔗 访问地址: http://${{ secrets.SERVER_HOST }}"
+          echo "=========================================="
