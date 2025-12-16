@@ -105,7 +105,25 @@ echo ""
 
 # 1. 更新系统
 echo -e "${YELLOW}[1/9] 更新系统...${NC}"
-yum update -y
+# 检查是否存在有问题的仓库（如 Docker CE）
+if yum repolist 2>&1 | grep -q "docker-ce-stable"; then
+    echo "  检测到 Docker CE 仓库，尝试禁用后更新..."
+    # 先尝试禁用 Docker 仓库更新
+    if yum update -y --disablerepo=docker-ce-stable 2>/dev/null; then
+        echo "  ✅ 系统更新完成（已跳过 Docker 仓库）"
+    else
+        echo "  尝试跳过所有有问题的仓库..."
+        yum update -y --skip-broken
+    fi
+else
+    # 正常更新
+    if yum update -y; then
+        echo "  ✅ 系统更新完成"
+    else
+        echo -e "  ${YELLOW}⚠️  系统更新遇到问题，尝试跳过有问题的软件包...${NC}"
+        yum update -y --skip-broken
+    fi
+fi
 
 # 2. 安装基础工具
 echo -e "${YELLOW}[2/9] 安装基础工具...${NC}"
