@@ -189,13 +189,7 @@ fi
 echo -e "${YELLOW}[5/9] 安装 MongoDB...${NC}"
 if command -v mongod &> /dev/null || command -v mongo &> /dev/null; then
     echo "  ✅ MongoDB 已安装，跳过安装步骤"
-    # 确保 MongoDB 正在运行
-    if ! systemctl is-active --quiet mongod 2>/dev/null && ! systemctl is-active --quiet mongodb 2>/dev/null; then
-        echo "  启动 MongoDB..."
-        systemctl start mongod 2>/dev/null || systemctl start mongodb 2>/dev/null
-        systemctl enable mongod 2>/dev/null || systemctl enable mongodb 2>/dev/null
-    fi
-elif ! command -v mongod &> /dev/null; then
+else
     echo "  安装 MongoDB..."
     # 检测系统版本
     if [ -f /etc/os-release ]; then
@@ -250,37 +244,25 @@ EOF
         fi
     fi
 
-    # 启动 MongoDB（仅在新安装时执行）
-    systemctl start mongod 2>/dev/null || systemctl start mongodb 2>/dev/null
-    systemctl enable mongod 2>/dev/null || systemctl enable mongodb 2>/dev/null
     echo "  ✅ MongoDB 安装完成"
 fi
 
-# 验证 MongoDB 是否运行
-if systemctl is-active --quiet mongod || systemctl is-active --quiet mongodb; then
-    echo "  ✅ MongoDB 运行正常"
+# 确保 MongoDB 正在运行（统一处理）
+if ! systemctl is-active --quiet mongod 2>/dev/null && ! systemctl is-active --quiet mongodb 2>/dev/null; then
+    echo "  启动 MongoDB..."
+    if systemctl start mongod 2>/dev/null || systemctl start mongodb 2>/dev/null; then
+        systemctl enable mongod 2>/dev/null || systemctl enable mongodb 2>/dev/null
+        echo "  ✅ MongoDB 启动成功"
+    else
+        echo -e "  ${RED}⚠️  MongoDB 启动失败，请手动检查${NC}"
+    fi
 else
-    echo -e "  ${RED}⚠️  MongoDB 启动失败，请手动检查${NC}"
+    echo "  ✅ MongoDB 运行正常"
 fi
 
-# 6. 安装 Nginx
-echo -e "${YELLOW}[6/9] 安装 Nginx...${NC}"
-if ! command -v nginx &> /dev/null; then
-    # 检查是否是阿里云服务器（已有 epel-aliyuncs-release）
-    if rpm -qa | grep -q epel-aliyuncs-release; then
-        echo "  ✓ 检测到阿里云 EPEL 仓库"
-        echo "  快速刷新 yum 缓存..."
-        # 使用快速模式，避免卡住
-        yum clean expire-cache > /dev/null 2>&1
-        timeout 30 yum makecache fast > /dev/null 2>&1 || echo "  ⚠️  缓存刷新超时，继续安装..."
-        
-        echo "  安装 Nginx（使用阿里云 EPEL）..."
-        if timeout 120 yum install -y nginx; then
-            echo "  ✅ Nginx 安装完成（使用阿里云 EPEL）"
-        else
-            echo -e "  ${YELLOW}⚠️  阿里云 EPEL 安装失败，尝试使用官方仓库...${NC}"
-            # 使用 Nginx 官方仓库
-            cat > /etc/yum.repos.d/nginx.repo <<'EOF'
+# 函数：创建 Nginx 官方仓库配置
+create_nginx_repo() {
+    cat > /etc/yum.repos.d/nginx.repo <<'EOF'
 [nginx-stable]
 name=nginx stable repo
 baseurl=http://nginx.org/packages/centos/$releasever/$basearch/
@@ -289,6 +271,24 @@ enabled=1
 gpgkey=https://nginx.org/keys/nginx_signing.key
 module_hotfixes=true
 EOF
+}
+
+# 6. 安装 Nginx
+echo -e "${YELLOW}[6/9] 安装 Nginx...${NC}"
+if ! command -v nginx &> /dev/null; then
+    # 检查是否是阿里云服务器（已有 epel-aliyuncs-release）
+    if rpm -qa | grep -q epel-aliyuncs-release; then
+        echo "  ✓ 检测到阿里云 EPEL 仓库"
+        echo "  快速刷新 yum 缓存..."
+        yum clean expire-cache > /dev/null 2>&1
+        timeout 30 yum makecache fast > /dev/null 2>&1 || echo "  ⚠️  缓存刷新超时，继续安装..."
+        
+        echo "  安装 Nginx（使用阿里云 EPEL）..."
+        if timeout 120 yum install -y nginx; then
+            echo "  ✅ Nginx 安装完成（使用阿里云 EPEL）"
+        else
+            echo -e "  ${YELLOW}⚠️  阿里云 EPEL 安装失败，尝试使用官方仓库...${NC}"
+            create_nginx_repo
             timeout 120 yum install -y nginx
             echo "  ✅ Nginx 安装完成（使用官方仓库）"
         fi
@@ -308,16 +308,7 @@ EOF
             echo "  ✅ Nginx 安装完成"
         else
             echo -e "  ${RED}❌ Nginx 安装失败，尝试使用官方仓库...${NC}"
-            # 尝试使用 Nginx 官方仓库
-            cat > /etc/yum.repos.d/nginx.repo <<'EOF'
-[nginx-stable]
-name=nginx stable repo
-baseurl=http://nginx.org/packages/centos/$releasever/$basearch/
-gpgcheck=1
-enabled=1
-gpgkey=https://nginx.org/keys/nginx_signing.key
-module_hotfixes=true
-EOF
+            create_nginx_repo
             yum install -y nginx
             echo "  ✅ Nginx 安装完成（使用官方仓库）"
         fi
@@ -399,100 +390,8 @@ else
     echo "  ✅ 所有目录已存在"
 fi
 
-# 9. 配置 Nginx
-echo -e "${YELLOW}[9/9] 配置 Nginx...${NC}"
-if [ -f /etc/nginx/conf.d/taskmanager.conf ]; then
-    echo "  ⚠️  Nginx 配置文件已存在"
-    read -p "  是否覆盖现有配置? (y/n): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo "  ✓ 保留现有配置"
-    else
-        echo "  更新 Nginx 配置..."
-        cat > /etc/nginx/conf.d/taskmanager.conf <<'EOF'
-# TaskManager Nginx 配置
-
-# 限流配置
-limit_req_zone $binary_remote_addr zone=api_limit:10m rate=10r/s;
-limit_req_zone $binary_remote_addr zone=login_limit:10m rate=5r/m;
-
-# 上游后端服务器
-upstream backend {
-    server 127.0.0.1:3000;
-    keepalive 64;
-}
-
-server {
-    listen 80;
-    server_name 39.108.91.231;
-    
-    # 日志
-    access_log /var/log/nginx/taskmanager_access.log;
-    error_log /var/log/nginx/taskmanager_error.log;
-    
-    # 安全头部
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header X-XSS-Protection "1; mode=block" always;
-    
-    # 前端静态文件
-    location / {
-        root /var/www/taskmanager/frontend/dist;
-        try_files $uri $uri/ /index.html;
-        
-        # 缓存静态资源
-        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
-            expires 1y;
-            add_header Cache-Control "public, immutable";
-        }
-    }
-    
-    # 后端 API 代理
-    location /api/ {
-        limit_req zone=api_limit burst=20 nodelay;
-        
-        proxy_pass http://backend;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header Connection "";
-        
-        proxy_connect_timeout 30s;
-        proxy_send_timeout 30s;
-        proxy_read_timeout 30s;
-    }
-    
-    # 登录接口限流
-    location /api/user/login {
-        limit_req zone=login_limit burst=3 nodelay;
-        
-        proxy_pass http://backend;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    }
-    
-    # 健康检查
-    location /health {
-        access_log off;
-        return 200 "healthy\n";
-        add_header Content-Type text/plain;
-    }
-}
-EOF
-        # 测试 Nginx 配置
-        if nginx -t 2>/dev/null; then
-            systemctl reload nginx
-            echo "  ✅ Nginx 配置已更新"
-        else
-            echo -e "  ${RED}❌ Nginx 配置测试失败${NC}"
-        fi
-    fi
-else
-    echo "  创建 Nginx 配置..."
+# 函数：创建 Nginx 配置文件
+create_nginx_config() {
     cat > /etc/nginx/conf.d/taskmanager.conf <<'EOF'
 # TaskManager Nginx 配置
 
@@ -567,6 +466,30 @@ server {
     }
 }
 EOF
+}
+
+# 9. 配置 Nginx
+echo -e "${YELLOW}[9/9] 配置 Nginx...${NC}"
+if [ -f /etc/nginx/conf.d/taskmanager.conf ]; then
+    echo "  ⚠️  Nginx 配置文件已存在"
+    read -p "  是否覆盖现有配置? (y/n): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "  ✓ 保留现有配置"
+    else
+        echo "  更新 Nginx 配置..."
+        create_nginx_config
+        # 测试 Nginx 配置
+        if nginx -t 2>/dev/null; then
+            systemctl reload nginx
+            echo "  ✅ Nginx 配置已更新"
+        else
+            echo -e "  ${RED}❌ Nginx 配置测试失败${NC}"
+        fi
+    fi
+else
+    echo "  创建 Nginx 配置..."
+    create_nginx_config
     # 测试 Nginx 配置
     if nginx -t 2>/dev/null; then
         systemctl reload nginx
