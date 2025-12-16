@@ -231,7 +231,6 @@ EOF
             yum install -y mongodb-server mongodb
         fi
     fi
-fi
 
     # 启动 MongoDB（仅在新安装时执行）
     systemctl start mongod 2>/dev/null || systemctl start mongodb 2>/dev/null
