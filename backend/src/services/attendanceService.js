@@ -260,7 +260,217 @@ class AttendanceService {
       };
     }
 
+    // 添加签出数据信息
+    if (record.checkoutData) {
+      formatted.checkoutData = {
+        status: record.checkoutData.status,
+        operationTime: record.checkoutData.operationTime ? 
+          moment(record.checkoutData.operationTime).format('YYYY-MM-DD HH:mm:ss') : null,
+        hasCaptcha: record.checkoutData.hasCaptcha,
+        captchaCode: record.checkoutData.captchaCode,
+        captchaResult: record.checkoutData.captchaResult,
+        errorMessage: record.checkoutData.errorMessage,
+        operationSource: record.checkoutData.operationSource
+      };
+    }
+
     return formatted;
+  }
+
+  /**
+   * 收集签出数据
+   * @param {string} username - 用户名
+   * @param {Object} checkoutData - 签出数据
+   * @param {string} userId - 用户ID（可选，默认'001'）
+   * @returns {Object} 收集结果
+   */
+  async collectCheckoutData(username, checkoutData, userId = '001') {
+    try {
+      const now = moment();
+      const dateKey = this.getCurrentEffectiveDate();
+
+      // 查找今天的记录
+      const record = await Attendance.findTodayRecord(userId, dateKey);
+
+      if (!record) {
+        // 如果记录不存在，创建新记录
+        const newRecord = new Attendance({
+          userId: userId,
+          username: username,
+          date: dateKey,
+          checkInTime: now.toDate(),
+          status: 'checked_in'
+        });
+        
+        // 设置签到签出数据
+        newRecord.checkoutData = {
+          operationType: checkoutData.operationType || 'check_out',
+          status: checkoutData.status || 'failed',
+          operationTime: now.toDate(),
+          hasCaptcha: checkoutData.hasCaptcha || false,
+          captchaCode: checkoutData.captchaCode || null,
+          captchaResult: checkoutData.captchaResult || 'not_applicable',
+          errorMessage: checkoutData.errorMessage || null,
+          operationSource: checkoutData.operationSource || 'auto'
+        };
+
+        // 如果签出成功，同时更新签退时间
+        if (checkoutData.status === 'success') {
+          newRecord.checkOutTime = now.toDate();
+          newRecord.status = 'checked_out';
+          
+          // 计算工作时长
+          const checkInMoment = moment(newRecord.checkInTime);
+          const duration = moment.duration(now.diff(checkInMoment));
+          newRecord.workHours = Math.floor(duration.asHours());
+          newRecord.workMinutes = duration.minutes();
+        }
+
+        await newRecord.save();
+
+        return {
+          success: true,
+          message: '签出数据收集成功（创建新记录）',
+          data: this.formatRecord(newRecord)
+        };
+      }
+
+      // 更新签到签出数据
+      record.checkoutData = {
+        operationType: checkoutData.operationType || 'check_out',
+        status: checkoutData.status || 'failed',
+        operationTime: now.toDate(),
+        hasCaptcha: checkoutData.hasCaptcha || false,
+        captchaCode: checkoutData.captchaCode || null,
+        captchaResult: checkoutData.captchaResult || 'not_applicable',
+        errorMessage: checkoutData.errorMessage || null,
+        operationSource: checkoutData.operationSource || 'auto'
+      };
+
+      // 如果签出成功，同时更新签退时间
+      if (checkoutData.status === 'success') {
+        record.checkOutTime = now.toDate();
+        record.status = 'checked_out';
+        
+        // 计算工作时长
+        const checkInMoment = moment(record.checkInTime);
+        const duration = moment.duration(now.diff(checkInMoment));
+        record.workHours = Math.floor(duration.asHours());
+        record.workMinutes = duration.minutes();
+      }
+
+      await record.save();
+
+      return {
+        success: true,
+        message: '签出数据收集成功',
+        data: this.formatRecord(record)
+      };
+    } catch (error) {
+      console.error('签出数据收集失败:', error);
+      return {
+        success: false,
+        message: '签出数据收集失败，请稍后重试'
+      };
+    }
+  }
+
+  /**
+   * 获取用户的签出数据统计
+   * @param {string} username - 用户名
+   * @param {number} days - 查询天数
+   * @param {string} userId - 用户ID（可选，默认'001'）
+   * @returns {Object} 签出数据统计
+   */
+  async getCheckoutStats(username, days = 30, userId = '001') {
+    try {
+      const moment = require('moment');
+      const startDate = moment().subtract(days - 1, 'days').format('YYYY-MM-DD');
+      
+      const records = await Attendance.find({
+        userId: userId,
+        username: username,
+        date: { $gte: startDate },
+        'checkoutData.status': { $exists: true }
+      }).sort({ date: -1 });
+
+      const stats = {
+        total: records.length,
+        success: records.filter(r => r.checkoutData.status === 'success').length,
+        failed: records.filter(r => r.checkoutData.status === 'failed').length,
+        withCaptcha: records.filter(r => r.checkoutData.hasCaptcha).length,
+        captchaSuccess: records.filter(r => r.checkoutData.captchaResult === 'success').length,
+        autoOperations: records.filter(r => r.checkoutData.operationSource === 'auto').length,
+        manualOperations: records.filter(r => r.checkoutData.operationSource === 'manual').length
+      };
+
+      return {
+        success: true,
+        message: '获取签出数据统计成功',
+        data: stats
+      };
+    } catch (error) {
+      console.error('获取签出数据统计失败:', error);
+      return {
+        success: false,
+        message: '获取签出数据统计失败，请稍后重试',
+        data: {}
+      };
+    }
+  }
+
+  /**
+   * 获取用户的详细签出记录（用于表格渲染）
+   * @param {string} userId - 用户ID
+   * @param {number} days - 查询天数
+   * @returns {Object} 详细签出记录
+   */
+  async getCheckoutRecords(userId, days = 30) {
+    try {
+      const moment = require('moment');
+      const startDate = moment().subtract(days - 1, 'days').format('YYYY-MM-DD');
+      
+      const records = await Attendance.find({
+        userId: userId,
+        date: { $gte: startDate },
+        'checkoutData.status': { $exists: true }
+      }).sort({ date: -1 });
+      // 格式化记录用于表格渲染
+      const formattedRecords = records.map(record => {
+        // 安全地访问 checkoutData 属性
+        const checkoutData = record.checkoutData || {};
+        
+        return {
+          date: record.date,
+          username: record.username || null,
+          checkInTime: record.getFormattedCheckInTime(),
+          checkOutTime: record.getFormattedCheckOutTime(),
+          operationType: checkoutData.operationType || 'check_out',  // 操作类型
+          status: checkoutData.status || null,
+          operationTime: checkoutData.operationTime ? 
+            moment(checkoutData.operationTime).format('YYYY-MM-DD HH:mm:ss') : null,
+          hasCaptcha: checkoutData.hasCaptcha || false,
+          captchaCode: checkoutData.captchaCode || null,
+          captchaResult: checkoutData.captchaResult || 'not_applicable',
+          errorMessage: checkoutData.errorMessage || null,
+          operationSource: checkoutData.operationSource || null,
+          workDuration: record.status === 'checked_out' ? record.getWorkDurationText() : null
+        };
+      });
+
+      return {
+        success: true,
+        message: '获取签出记录成功',
+        data: formattedRecords
+      };
+    } catch (error) {
+      console.error('获取签出记录失败:', error);
+      return {
+        success: false,
+        message: '获取签出记录失败，请稍后重试',
+        data: []
+      };
+    }
   }
 }
 

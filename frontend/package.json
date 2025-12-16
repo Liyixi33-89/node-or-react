@@ -8,7 +8,8 @@
     "react-dom": "^18.2.0",
     "axios": "^1.6.2",
     "antd-mobile": "^5.34.0",
-    "moment": "^2.29.4"
+    "moment": "^2.29.4",
+    "crypto-js": "^4.2.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.0.0",

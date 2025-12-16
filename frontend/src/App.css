@@ -261,11 +261,31 @@
 
 .no-data {
   text-align: center;
-  padding: 30px;
+  padding: 60px 20px;
   color: #999;
   font-size: 14px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
+.no-data-icon {
+  font-size: 48px;
+  margin-bottom: 15px;
+  opacity: 0.5;
+}
+
+.no-data-text {
+  font-size: 16px;
+  font-weight: 500;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.no-data-hint {
+  font-size: 12px;
+  color: #999;
+}
 .footer {
   text-align: center;
   color: white;
@@ -305,4 +325,275 @@
 /* antd-mobile 样式覆盖 */
 .adm-button-disabled {
   opacity: 0.5;
+}
+
+/* 签出数据统计样式 */
+.checkout-stats {
+  margin-top: 20px;
+}
+
+.checkout-stats h3 {
+  color: #333;
+  margin-bottom: 15px;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.stats-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-left: 4px solid #667eea;
+}
+
+.stat-card.success {
+  border-left-color: #52c41a;
+}
+
+.stat-card.failed {
+  border-left-color: #ff4d4f;
+}
+
+.stat-card.captcha {
+  border-left-color: #722ed1;
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 5px;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* 签出记录表格样式 */
+.checkout-records {
+  margin-top: 20px;
+}
+
+.checkout-records .section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.checkout-records h3 {
+  color: #333;
+  font-size: 18px;
+  font-weight: bold;
+  margin: 0;
+}
+
+.checkout-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.checkout-table th {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 12px 10px;
+  text-align: left;
+  font-weight: bold;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.checkout-table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid #f0f0f0;
+  color: #666;
+  vertical-align: middle;
+}
+
+.checkout-table .date-cell {
+  font-weight: 500;
+  color: #333;
+}
+
+.checkout-table .time-cell {
+  color: #666;
+  font-family: monospace;
+}
+
+.checkout-table .error-cell {
+  max-width: 200px;
+}
+
+.checkout-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.checkout-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* 签出状态样式 */
+.status-success {
+  background: #d3f9d8;
+  color: #2b8a3e;
+}
+
+.status-failed {
+  background: #ffe3e3;
+  color: #c92a2a;
+}
+
+/* 验证码相关样式 */
+.captcha-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.captcha-code {
+  background: #e7f5ff;
+  color: #1971c2;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-block;
+}
+
+.no-captcha {
+  color: #999;
+  font-size: 11px;
+}
+
+.captcha-result.success {
+  background: #d3f9d8;
+  color: #2b8a3e;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  display: inline-block;
+}
+
+.captcha-result.failed {
+  background: #ffe3e3;
+  color: #c92a2a;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  display: inline-block;
+}
+
+.not-applicable {
+  color: #adb5bd;
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* 操作类型样式 */
+.operation-type {
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-block;
+}
+
+.operation-type.type-checkin {
+  background: #e7f5ff;
+  color: #1971c2;
+}
+
+.operation-type.type-checkout {
+  background: #fff0f6;
+  color: #c2185b;
+}
+
+/* 操作来源样式 */
+.operation-source.auto {
+  background: #e7f5ff;
+  color: #1971c2;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.operation-source.manual {
+  background: #fff7e6;
+  color: #d46b08;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+/* 错误信息样式 */
+.error-message {
+  background: #fff5f5;
+  color: #e03131;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: help;
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-left: 3px solid #e03131;
+}
+
+.error-message:hover {
+  background: #ffe3e3;
+}
+
+.no-error {
+  color: #adb5bd;
+  font-size: 12px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .stats-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .checkout-table {
+    font-size: 11px;
+  }
+  
+  .checkout-table th,
+  .checkout-table td {
+    padding: 8px 4px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-cards {
+    grid-template-columns: 1fr;
+  }
+  
+  .checkout-table {
+    font-size: 10px;
+  }
+  
+  .stat-value {
+    font-size: 24px;
+  }
 }

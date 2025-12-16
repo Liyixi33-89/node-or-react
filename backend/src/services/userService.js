@@ -33,6 +33,37 @@ class UserService {
     };
   }
 
+  // 验证密码格式（前端已SHA256加密，验证64位十六进制格式）
+  static validatePassword(password) {
+    if (!password) {
+      return {
+        valid: false,
+        message: '密码不能为空'
+      };
+    }
+
+    // 检查是否为64位十六进制字符串（SHA256加密后的格式）
+    if (password.length !== 64) {
+      return {
+        valid: false,
+        message: '密码格式错误'
+      };
+    }
+
+    // 只允许十六进制字符（0-9, a-f）
+    const passwordRegex = /^[a-f0-9]+$/;
+    if (!passwordRegex.test(password)) {
+      return {
+        valid: false,
+        message: '密码格式错误'
+      };
+    }
+
+    return {
+      valid: true
+    };
+  }
+
   // 密码加密
   static hashPassword(password) {
     return crypto.createHash('sha256').update(password).digest('hex');
@@ -81,11 +112,20 @@ class UserService {
   static async register(username, password, name) {
     try {
       // 验证用户名格式
-      const validation = this.validateUsername(username);
-      if (!validation.valid) {
+      const usernameValidation = this.validateUsername(username);
+      if (!usernameValidation.valid) {
         return {
           success: false,
-          message: validation.message
+          message: usernameValidation.message
+        };
+      }
+
+      // 验证密码格式
+      const passwordValidation = this.validatePassword(password);
+      if (!passwordValidation.valid) {
+        return {
+          success: false,
+          message: passwordValidation.message
         };
       }
 
@@ -107,12 +147,12 @@ class UserService {
         };
       }
 
-      // 创建新用户
+      // 创建新用户（密码已在前端加密，后端再次加密）
       const hashedPassword = this.hashPassword(password);
       const user = new User({
         username,
         password: hashedPassword,
-        name
+        name: name || username
       });
 
       await user.save();
@@ -139,11 +179,20 @@ class UserService {
   static async login(username, password) {
     try {
       // 验证用户名格式
-      const validation = this.validateUsername(username);
-      if (!validation.valid) {
+      const usernameValidation = this.validateUsername(username);
+      if (!usernameValidation.valid) {
         return {
           success: false,
-          message: validation.message
+          message: usernameValidation.message
+        };
+      }
+
+      // 验证密码格式
+      const passwordValidation = this.validatePassword(password);
+      if (!passwordValidation.valid) {
+        return {
+          success: false,
+          message: passwordValidation.message
         };
       }
 
@@ -156,7 +205,7 @@ class UserService {
         };
       }
 
-      // 验证密码
+      // 验证密码（密码已在前端加密，后端再次加密后比对）
       const hashedPassword = this.hashPassword(password);
       if (user.password !== hashedPassword) {
         return {
@@ -217,61 +266,7 @@ class UserService {
     }
   }
 
-  // 快速登录（开发模式，自动创建用户）
-  static async quickLogin(username = 'demo') {
-    try {
-      // 验证用户名格式
-      const validation = this.validateUsername(username);
-      if (!validation.valid) {
-        return {
-          success: false,
-          message: validation.message
-        };
-      }
 
-      // 查找或创建用户
-      let user = await User.findOne({ username });
-      
-      if (!user) {
-        // 检查当天注册数量限制
-        const limitCheck = await this.checkDailyRegistrationLimit();
-        if (limitCheck.isExceeded) {
-          return {
-            success: false,
-            message: `今日注册人数已达上限（${limitCheck.limit}人），请明天再试或使用已有账号登录`
-          };
-        }
-
-        const hashedPassword = this.hashPassword('123456');
-        user = new User({
-          username,
-          password: hashedPassword,
-          name: username === 'demo' ? '演示用户' : username
-        });
-        await user.save();
-      }
-
-      // 更新最后登录时间
-      user.lastLoginAt = new Date();
-      await user.save();
-
-      return {
-        success: true,
-        message: '快速登录成功',
-        data: {
-          userId: user._id.toString(),
-          username: user.username,
-          name: user.name
-        }
-      };
-    } catch (error) {
-      console.error('快速登录失败:', error);
-      return {
-        success: false,
-        message: '快速登录失败: ' + error.message
-      };
-    }
-  }
 }
 
 module.exports = UserService;

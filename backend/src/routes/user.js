@@ -53,22 +53,6 @@ router.post('/login', async (ctx) => {
   }
 });
 
-// 快速登录（开发模式）
-router.post('/quick-login', async (ctx) => {
-  try {
-    const { username } = ctx.request.body;
-    const result = await UserService.quickLogin(username || 'demo');
-    ctx.body = result;
-  } catch (error) {
-    console.error('快速登录接口错误:', error);
-    ctx.status = 500;
-    ctx.body = {
-      success: false,
-      message: '服务器错误'
-    };
-  }
-});
-
 // 获取用户信息
 router.get('/info/:userId', async (ctx) => {
   try {

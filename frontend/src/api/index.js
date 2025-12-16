@@ -41,11 +41,6 @@ export const userAPI = {
     return api.post('/user/login', { username, password });
   },
   
-  // 快速登录
-  quickLogin: (username) => {
-    return api.post('/user/quick-login', { username });
-  },
-  
   // 获取用户信息
   getUserInfo: (userId) => {
     return api.get(`/user/info/${userId}`);
@@ -76,6 +71,25 @@ export const attendanceAPI = {
   // 获取今日所有签到数据
   getTodayAll: () => {
     return api.get('/attendance/today-all');
+  },
+  
+  // 收集签出数据
+  collectCheckout: (username, checkoutData, userId = '001') => {
+    return api.post('/attendance/collect-checkout', {
+      username,
+      userId,
+      ...checkoutData
+    });
+  },
+  
+  // 获取签出数据统计
+  getCheckoutStats: (username, days = 30, userId = '001') => {
+    return api.get(`/attendance/checkout-stats/${username}?days=${days}&userId=${userId}`);
+  },
+  
+  // 获取签出详细记录
+  getCheckoutRecords: (userId, days = 30) => {
+    return api.get(`/attendance/checkout-records/${userId}?days=${days}`);
   }
 };
 

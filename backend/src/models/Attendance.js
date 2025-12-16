@@ -7,6 +7,13 @@ const attendanceSchema = new mongoose.Schema({
     required: true,
     index: true
   },
+  // 用户名
+  username: {
+    type: String,
+    required: false,
+    index: true,
+    default: null
+  },
   // 日期（YYYY-MM-DD格式）
   date: {
     type: String,
@@ -53,6 +60,53 @@ const attendanceSchema = new mongoose.Schema({
   overtimeMinutes: {
     type: Number,
     default: 0
+  },
+  // 签到签出数据收集相关字段
+  checkoutData: {
+    // 操作类型：check_in（签入）、check_out（签出）
+    operationType: {
+      type: String,
+      enum: ['check_in', 'check_out'],
+      default: null
+    },
+    // 操作状态：success（成功）、failed（失败）
+    status: {
+      type: String,
+      enum: ['success', 'failed'],
+      default: null
+    },
+    // 操作时间
+    operationTime: {
+      type: Date,
+      default: null
+    },
+    // 是否遇到验证码
+    hasCaptcha: {
+      type: Boolean,
+      default: false
+    },
+    // 验证码内容（如果有）
+    captchaCode: {
+      type: String,
+      default: null
+    },
+    // 验证码识别结果：success（成功）、failed（失败）
+    captchaResult: {
+      type: String,
+      enum: ['success', 'failed', 'not_applicable'],
+      default: 'not_applicable'
+    },
+    // 错误信息（如果签出失败）
+    errorMessage: {
+      type: String,
+      default: null
+    },
+    // 签出操作来源：manual（手动）、auto（自动）
+    operationSource: {
+      type: String,
+      enum: ['manual', 'auto'],
+      default: 'manual'
+    }
   }
 }, {
   timestamps: true, // 自动添加createdAt和updatedAt
