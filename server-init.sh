@@ -301,11 +301,11 @@ create_nginx_repo() {
         fi
     fi
     
-    # 优先尝试阿里云镜像（国内速度快）
+    # 优先尝试清华大学镜像（国内速度快且稳定）
     cat > /etc/yum.repos.d/nginx.repo <<EOF
 [nginx-stable]
 name=nginx stable repo
-baseurl=https://mirrors.aliyun.com/nginx/centos/${centos_ver}/\$basearch/
+baseurl=https://mirrors.tuna.tsinghua.edu.cn/nginx/centos/${centos_ver}/\$basearch/
 gpgcheck=1
 enabled=1
 gpgkey=https://nginx.org/keys/nginx_signing.key
