@@ -248,23 +248,20 @@ fi
 # 6. 安装 Nginx
 echo -e "${YELLOW}[6/9] 安装 Nginx...${NC}"
 if ! command -v nginx &> /dev/null; then
-    echo "  检查 EPEL 仓库..."
-    # 检查 EPEL 仓库是否已安装
-    if ! rpm -qa | grep -q epel-release; then
-        echo "  安装 EPEL 仓库..."
-        yum install -y epel-release
-        echo "  ✅ EPEL 仓库安装完成"
-    else
-        echo "  ✓ EPEL 仓库已安装"
-    fi
-    
-    echo "  安装 Nginx..."
-    if yum install -y nginx; then
-        echo "  ✅ Nginx 安装完成"
-    else
-        echo -e "  ${RED}❌ Nginx 安装失败，尝试使用官方仓库...${NC}"
-        # 尝试使用 Nginx 官方仓库
-        cat > /etc/yum.repos.d/nginx.repo <<'EOF'
+    # 检查是否是阿里云服务器（已有 epel-aliyuncs-release）
+    if rpm -qa | grep -q epel-aliyuncs-release; then
+        echo "  ✓ 检测到阿里云 EPEL 仓库"
+        echo "  刷新 yum 缓存..."
+        yum clean all > /dev/null 2>&1
+        yum makecache > /dev/null 2>&1
+        
+        echo "  安装 Nginx（使用阿里云 EPEL）..."
+        if yum install -y nginx; then
+            echo "  ✅ Nginx 安装完成（使用阿里云 EPEL）"
+        else
+            echo -e "  ${YELLOW}⚠️  阿里云 EPEL 安装失败，尝试使用官方仓库...${NC}"
+            # 使用 Nginx 官方仓库
+            cat > /etc/yum.repos.d/nginx.repo <<'EOF'
 [nginx-stable]
 name=nginx stable repo
 baseurl=http://nginx.org/packages/centos/$releasever/$basearch/
@@ -273,8 +270,38 @@ enabled=1
 gpgkey=https://nginx.org/keys/nginx_signing.key
 module_hotfixes=true
 EOF
-        yum install -y nginx
-        echo "  ✅ Nginx 安装完成（使用官方仓库）"
+            yum install -y nginx
+            echo "  ✅ Nginx 安装完成（使用官方仓库）"
+        fi
+    else
+        # 非阿里云服务器，检查标准 EPEL
+        echo "  检查 EPEL 仓库..."
+        if ! rpm -qa | grep -q epel-release; then
+            echo "  安装 EPEL 仓库..."
+            yum install -y epel-release
+            echo "  ✅ EPEL 仓库安装完成"
+        else
+            echo "  ✓ EPEL 仓库已安装"
+        fi
+        
+        echo "  安装 Nginx..."
+        if yum install -y nginx; then
+            echo "  ✅ Nginx 安装完成"
+        else
+            echo -e "  ${RED}❌ Nginx 安装失败，尝试使用官方仓库...${NC}"
+            # 尝试使用 Nginx 官方仓库
+            cat > /etc/yum.repos.d/nginx.repo <<'EOF'
+[nginx-stable]
+name=nginx stable repo
+baseurl=http://nginx.org/packages/centos/$releasever/$basearch/
+gpgcheck=1
+enabled=1
+gpgkey=https://nginx.org/keys/nginx_signing.key
+module_hotfixes=true
+EOF
+            yum install -y nginx
+            echo "  ✅ Nginx 安装完成（使用官方仓库）"
+        fi
     fi
 else
     echo "  ✅ Nginx $(nginx -v 2>&1 | awk '{print $3}') 已安装，跳过"
