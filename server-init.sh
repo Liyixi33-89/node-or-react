@@ -467,7 +467,54 @@ fi
 
 # 函数：创建 Nginx 配置文件
 create_nginx_config() {
-    cat > /etc/nginx/conf.d/taskmanager.conf <<'EOF'
+    # 动态检测 Nginx 配置目录
+    local nginx_conf_dir=""
+    local nginx_bin=$(which nginx 2>/dev/null)
+    
+    if [ -z "$nginx_bin" ]; then
+        echo "  ❌ 无法找到 Nginx 可执行文件"
+        return 1
+    fi
+    
+    # 获取 Nginx 配置文件路径
+    local nginx_conf=$(nginx -V 2>&1 | grep -o 'conf-path=[^ ]*' | cut -d= -f2)
+    
+    if [ -z "$nginx_conf" ]; then
+        # 如果无法获取，使用默认路径
+        if [ -d "/etc/nginx/conf.d" ]; then
+            nginx_conf_dir="/etc/nginx/conf.d"
+        elif [ -d "/usr/local/nginx/conf/conf.d" ]; then
+            nginx_conf_dir="/usr/local/nginx/conf/conf.d"
+        else
+            # 创建 conf.d 目录
+            local base_conf_dir=$(dirname "$nginx_conf" 2>/dev/null || echo "/usr/local/nginx/conf")
+            nginx_conf_dir="${base_conf_dir}/conf.d"
+        fi
+    else
+        # 从主配置文件路径推导 conf.d 目录
+        local base_conf_dir=$(dirname "$nginx_conf")
+        nginx_conf_dir="${base_conf_dir}/conf.d"
+    fi
+    
+    # 确保 conf.d 目录存在
+    if [ ! -d "$nginx_conf_dir" ]; then
+        echo "  创建配置目录: $nginx_conf_dir"
+        mkdir -p "$nginx_conf_dir"
+    fi
+    
+    # 确保主配置文件包含 conf.d 目录
+    if [ -n "$nginx_conf" ] && [ -f "$nginx_conf" ]; then
+        if ! grep -q "include.*conf.d/\*.conf" "$nginx_conf"; then
+            echo "  配置主配置文件包含 conf.d 目录..."
+            # 在 http 块中添加 include 指令
+            sed -i '/http {/a\    include '"$nginx_conf_dir"'/*.conf;' "$nginx_conf"
+        fi
+    fi
+    
+    echo "  使用配置目录: $nginx_conf_dir"
+    
+    # 创建配置文件
+    cat > "${nginx_conf_dir}/taskmanager.conf" <<'EOF'
 # TaskManager Nginx 配置
 
 # 限流配置
@@ -550,32 +597,59 @@ echo -e "${YELLOW}[9/9] 配置 Nginx...${NC}"
 if ! command -v nginx &> /dev/null; then
     echo "  ⚠️  Nginx 未安装，跳过配置步骤"
 else
-    if [ -f /etc/nginx/conf.d/taskmanager.conf ]; then
-        echo "  ⚠️  Nginx 配置文件已存在"
+    # 动态检测 Nginx 路径
+    NGINX_BIN=$(which nginx)
+    echo "  检测到 Nginx: $NGINX_BIN"
+    
+    # 获取配置文件路径
+    NGINX_CONF=$(nginx -V 2>&1 | grep -o 'conf-path=[^ ]*' | cut -d= -f2)
+    if [ -z "$NGINX_CONF" ]; then
+        NGINX_CONF="/usr/local/nginx/conf/nginx.conf"
+    fi
+    echo "  主配置文件: $NGINX_CONF"
+    
+    # 推导 conf.d 目录
+    NGINX_CONF_DIR=$(dirname "$NGINX_CONF")/conf.d
+    TASKMANAGER_CONF="${NGINX_CONF_DIR}/taskmanager.conf"
+    
+    if [ -f "$TASKMANAGER_CONF" ]; then
+        echo "  ⚠️  Nginx 配置文件已存在: $TASKMANAGER_CONF"
         read -p "  是否覆盖现有配置? (y/n): " -n 1 -r
         echo
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
             echo "  ✓ 保留现有配置"
         else
             echo "  更新 Nginx 配置..."
-            create_nginx_config
-            # 测试 Nginx 配置
-            if nginx -t 2>/dev/null; then
-                systemctl reload nginx
-                echo "  ✅ Nginx 配置已更新"
-            else
-                echo -e "  ${RED}❌ Nginx 配置测试失败${NC}"
+            if create_nginx_config; then
+                # 测试 Nginx 配置
+                if nginx -t 2>/dev/null; then
+                    # 尝试使用 systemctl，如果失败则使用 nginx -s reload
+                    if systemctl reload nginx 2>/dev/null; then
+                        echo "  ✅ Nginx 配置已更新（systemctl）"
+                    else
+                        nginx -s reload 2>/dev/null && echo "  ✅ Nginx 配置已更新（nginx -s reload）" || echo "  ⚠️  请手动重载 Nginx"
+                    fi
+                else
+                    echo -e "  ${RED}❌ Nginx 配置测试失败${NC}"
+                    nginx -t
+                fi
             fi
         fi
     else
         echo "  创建 Nginx 配置..."
-        create_nginx_config
-        # 测试 Nginx 配置
-        if nginx -t 2>/dev/null; then
-            systemctl reload nginx
-            echo "  ✅ Nginx 配置已创建"
-        else
-            echo -e "  ${RED}❌ Nginx 配置测试失败${NC}"
+        if create_nginx_config; then
+            # 测试 Nginx 配置
+            if nginx -t 2>/dev/null; then
+                # 尝试使用 systemctl，如果失败则使用 nginx -s reload
+                if systemctl reload nginx 2>/dev/null; then
+                    echo "  ✅ Nginx 配置已创建（systemctl）"
+                else
+                    nginx -s reload 2>/dev/null && echo "  ✅ Nginx 配置已创建（nginx -s reload）" || echo "  ⚠️  请手动重载 Nginx"
+                fi
+            else
+                echo -e "  ${RED}❌ Nginx 配置测试失败${NC}"
+                nginx -t
+            fi
         fi
     fi
 fi
