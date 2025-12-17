@@ -250,7 +250,8 @@ function Login({ onLoginSuccess }) {
             </div>
           </Tabs.Tab>
 
-          <Tabs.Tab title="注册" key="register">
+          {/* 注册功能已暂时关闭 */}
+          {/* <Tabs.Tab title="注册" key="register">
             <div className="login-form">
               <Input
                 placeholder="请输入用户名"
@@ -303,7 +304,7 @@ function Login({ onLoginSuccess }) {
                 </ul>
               </div>
             </div>
-          </Tabs.Tab>
+          </Tabs.Tab> */}
         </Tabs>
       </Card>
     </div>
