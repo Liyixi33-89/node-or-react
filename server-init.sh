@@ -324,7 +324,23 @@ EOF
 
 # 6. 安装 Nginx
 echo -e "${YELLOW}[6/9] 安装 Nginx...${NC}"
-if ! command -v nginx &> /dev/null; then
+
+# 检查 Nginx 是否已安装并运行
+if command -v nginx &> /dev/null; then
+    NGINX_VERSION=$(nginx -v 2>&1 | awk '{print $3}')
+    if systemctl is-active --quiet nginx; then
+        echo "  ✅ Nginx $NGINX_VERSION 已安装并运行，跳过安装和配置"
+    else
+        echo "  ✅ Nginx $NGINX_VERSION 已安装但未运行"
+        echo "  启动 Nginx..."
+        systemctl start nginx
+        systemctl enable nginx
+        echo "  ✅ Nginx 已启动"
+    fi
+else
+    # Nginx 未安装，执行安装流程
+    echo "  Nginx 未安装，开始安装..."
+    
     # 检查是否是阿里云服务器（已有 epel-aliyuncs-release）
     if rpm -qa | grep -q epel-aliyuncs-release; then
         echo "  ✓ 检测到阿里云 EPEL 仓库"
@@ -374,17 +390,15 @@ if ! command -v nginx &> /dev/null; then
             echo "  ✅ Nginx 安装完成（使用官方仓库）"
         fi
     fi
-else
-    echo "  ✅ Nginx $(nginx -v 2>&1 | awk '{print $3}') 已安装，跳过"
+    
+    # 确保 Nginx 正在运行
+    if ! systemctl is-active --quiet nginx; then
+        echo "  启动 Nginx..."
+        systemctl start nginx
+    fi
+    systemctl enable nginx
+    echo "  ✅ Nginx 运行正常"
 fi
-
-# 确保 Nginx 正在运行
-if ! systemctl is-active --quiet nginx; then
-    echo "  启动 Nginx..."
-    systemctl start nginx
-fi
-systemctl enable nginx
-echo "  ✅ Nginx 运行正常"
 
 # 7. 配置防火墙
 echo -e "${YELLOW}[7/9] 配置防火墙...${NC}"
@@ -531,32 +545,38 @@ EOF
 
 # 9. 配置 Nginx
 echo -e "${YELLOW}[9/9] 配置 Nginx...${NC}"
-if [ -f /etc/nginx/conf.d/taskmanager.conf ]; then
-    echo "  ⚠️  Nginx 配置文件已存在"
-    read -p "  是否覆盖现有配置? (y/n): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo "  ✓ 保留现有配置"
+
+# 检查 Nginx 是否已安装
+if ! command -v nginx &> /dev/null; then
+    echo "  ⚠️  Nginx 未安装，跳过配置步骤"
+else
+    if [ -f /etc/nginx/conf.d/taskmanager.conf ]; then
+        echo "  ⚠️  Nginx 配置文件已存在"
+        read -p "  是否覆盖现有配置? (y/n): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "  ✓ 保留现有配置"
+        else
+            echo "  更新 Nginx 配置..."
+            create_nginx_config
+            # 测试 Nginx 配置
+            if nginx -t 2>/dev/null; then
+                systemctl reload nginx
+                echo "  ✅ Nginx 配置已更新"
+            else
+                echo -e "  ${RED}❌ Nginx 配置测试失败${NC}"
+            fi
+        fi
     else
-        echo "  更新 Nginx 配置..."
+        echo "  创建 Nginx 配置..."
         create_nginx_config
         # 测试 Nginx 配置
         if nginx -t 2>/dev/null; then
             systemctl reload nginx
-            echo "  ✅ Nginx 配置已更新"
+            echo "  ✅ Nginx 配置已创建"
         else
             echo -e "  ${RED}❌ Nginx 配置测试失败${NC}"
         fi
-    fi
-else
-    echo "  创建 Nginx 配置..."
-    create_nginx_config
-    # 测试 Nginx 配置
-    if nginx -t 2>/dev/null; then
-        systemctl reload nginx
-        echo "  ✅ Nginx 配置已创建"
-    else
-        echo -e "  ${RED}❌ Nginx 配置测试失败${NC}"
     fi
 fi
 
