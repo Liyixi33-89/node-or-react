@@ -13,11 +13,17 @@
     "pm2:restart": "pm2 restart ecosystem.config.js",
     "pm2:delete": "pm2 delete ecosystem.config.js"
   },
-  "keywords": ["koa2", "attendance", "checkin"],
+  "keywords": [
+    "koa2",
+    "attendance",
+    "checkin"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
     "@koa/cors": "^4.0.0",
+    "axios": "^1.13.2",
+    "dotenv": "^17.2.3",
     "koa": "^2.14.2",
     "koa-bodyparser": "^4.4.1",
     "koa-router": "^12.0.1",

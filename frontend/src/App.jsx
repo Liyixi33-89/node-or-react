@@ -107,7 +107,7 @@ function App() {
     if (!userInfo) return;
 
     try {
-      const result = await attendanceAPI.getCheckoutRecords(userInfo.name, 30);
+      const result = await attendanceAPI.getCheckoutRecords(userInfo.userId, 30);
       if (result.success) {
         setCheckoutRecords(result.data);
         console.log('签出详细记录:', result.data);
@@ -120,29 +120,112 @@ function App() {
   };
 
   // 签到
+  // 轮询任务状态
+  const pollTaskStatus = async (taskId, taskType) => {
+    if (!taskId) {
+      console.error('pollTaskStatus: taskId is required');
+      return;
+    }
+
+    const maxAttempts = 60; // 最多轮询60次（5分钟）
+    let attempts = 0;
+    
+    const poll = setInterval(async () => {
+      attempts++;
+      
+      try {
+        const response = await attendanceAPI.getTaskStatus(userInfo.userId);
+        
+        if (response.success) {
+          const task = response.task;
+          
+          if (task.status === 'completed') {
+            clearInterval(poll);
+            Toast.show({
+              icon: 'success',
+              content: `${taskType === 'checkin' ? '签入' : '签出'}成功！`,
+              duration: 2000,
+            });
+            // 刷新所有状态
+            await fetchStatus();
+            await fetchTodayRecords();
+            await fetchCheckoutStats();
+            await fetchCheckoutRecords();
+          } else if (task.status === 'failed') {
+            clearInterval(poll);
+            Toast.show({
+              icon: 'fail',
+              content: `${taskType === 'checkin' ? '签入' : '签出'}失败：${task.result?.error || '未知错误'}`,
+              duration: 3000,
+            });
+          } else if (attempts >= maxAttempts) {
+            clearInterval(poll);
+            Toast.show({
+              icon: 'fail',
+              content: '任务执行超时，请稍后查看结果',
+              duration: 3000,
+            });
+          }
+        }
+      } catch (error) {
+        console.error('查询任务状态失败:', error);
+        // 继续轮询，不中断
+      }
+    }, 5000); // 每5秒查询一次
+  };
+
   const handleCheckIn = async () => {
     if (!userInfo) return;
 
     setLoading(true);
     try {
-      const result = await attendanceAPI.checkIn(userInfo.userId);
-      if (result.success) {
+      // 触发签入任务
+      Toast.show({
+        icon: 'loading',
+        content: '正在创建签入任务...',
+        duration: 0,
+      });
+      
+      const triggerResult = await attendanceAPI.triggerCheckIn(userInfo.userId, userInfo.username);
+      console.log('签入任务创建结果:', triggerResult);
+      
+      Toast.clear();
+      
+      if (triggerResult.success) {
+        const taskId = triggerResult.taskId;
+        
+        if (!taskId) {
+          console.error('未获取到任务ID:', triggerResult);
+          Toast.show({
+            icon: 'fail',
+            content: '任务创建成功但未获取到ID',
+            duration: 3000,
+          });
+          return;
+        }
+
         Toast.show({
-          icon: 'success',
-          content: result.message,
+          icon: 'loading',
+          content: '签入任务已创建，正在执行中...',
+          duration: 0,
         });
-        await fetchStatus();
-        await fetchTodayRecords();
+        
+        // 开始轮询任务状态
+        pollTaskStatus(taskId, 'checkin');
       } else {
         Toast.show({
           icon: 'fail',
-          content: result.message,
+          content: triggerResult.message || '创建签入任务失败',
+          duration: 3000,
         });
       }
     } catch (error) {
+      console.error('触发签入异常:', error);
+      Toast.clear();
       Toast.show({
         icon: 'fail',
-        content: error.message || '签到失败',
+        content: error.message || '触发签入失败',
+        duration: 3000,
       });
     } finally {
       setLoading(false);
@@ -155,24 +238,53 @@ function App() {
 
     setLoading(true);
     try {
-      const result = await attendanceAPI.checkOut(userInfo.userId);
-      if (result.success) {
+      // 触发签出任务
+      Toast.show({
+        icon: 'loading',
+        content: '正在创建签出任务...',
+        duration: 0,
+      });
+      
+      const triggerResult = await attendanceAPI.triggerCheckOut(userInfo.userId, userInfo.username);
+      console.log('签出任务创建结果:', triggerResult);
+      
+      Toast.clear();
+      
+      if (triggerResult.success) {
+        const taskId = triggerResult.taskId;
+        
+        if (!taskId) {
+          console.error('未获取到任务ID:', triggerResult);
+          Toast.show({
+            icon: 'fail',
+            content: '任务创建成功但未获取到ID',
+            duration: 3000,
+          });
+          return;
+        }
+        
         Toast.show({
-          icon: 'success',
-          content: result.message,
+          icon: 'loading',
+          content: '签出任务已创建，正在执行中...',
+          duration: 0,
         });
-        await fetchStatus();
-        await fetchTodayRecords();
+        
+        // 开始轮询任务状态
+        pollTaskStatus(taskId, 'checkout');
       } else {
         Toast.show({
           icon: 'fail',
-          content: result.message,
+          content: triggerResult.message || '创建签出任务失败',
+          duration: 3000,
         });
       }
     } catch (error) {
+      console.error('触发签出异常:', error);
+      Toast.clear();
       Toast.show({
         icon: 'fail',
-        content: error.message || '签退失败',
+        content: error.message || '触发签出失败',
+        duration: 3000,
       });
     } finally {
       setLoading(false);
@@ -311,22 +423,34 @@ function App() {
 
         <div className="action-buttons">
           <Space direction="vertical" block style={{ '--gap': '16px' }}>
-            <Button
-              color="primary"
-              size="large"
-              block
-              disabled={!status || !status.canCheckIn || loading}
-              onClick={handleCheckIn}
-              className="action-button checkin-button"
-            >
-              {loading ? <DotLoading color="white" /> : '签到'}
-            </Button>
+            <div style={{ position: 'relative' }}>
+              <Button
+                color="primary"
+                size="large"
+                block
+                disabled={!status || status.hasCheckedInToday || loading}
+                onClick={handleCheckIn}
+                className="action-button checkin-button"
+              >
+                {loading ? <DotLoading color="white" /> : '签到'}
+              </Button>
+              {status && status.hasCheckedInToday && (
+                <div style={{ 
+                  fontSize: '12px', 
+                  color: '#00b578', 
+                  marginTop: '4px',
+                  textAlign: 'center'
+                }}>
+                  ✅ 今日已签到
+                </div>
+              )}
+            </div>
 
             <Button
               color="danger"
               size="large"
               block
-              disabled={!status || status.status === 'not_checked_in' || loading}
+              disabled={!status || !status.canCheckOut || loading}
               onClick={handleCheckOut}
               className="action-button checkout-button"
             >

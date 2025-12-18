@@ -90,6 +90,26 @@ export const attendanceAPI = {
   // 获取签出详细记录
   getCheckoutRecords: (userId, days = 30) => {
     return api.get(`/attendance/checkout-records/${userId}?days=${days}`);
+  },
+  
+// 触发脚本执行签入
+  triggerCheckIn: (userId, username) => {
+    return api.post('/attendance/trigger-checkin', { userId, username });
+  },
+  
+  // 触发脚本执行签出
+  triggerCheckOut: (userId, username) => {
+    return api.post('/attendance/trigger-checkout', { userId, username });
+  },
+  
+  // 获取任务状态
+  getTaskStatus: (taskId) => {
+    return api.get(`/attendance/task/${taskId}`);
+  },
+  
+  // 更新任务状态
+  updateTaskStatus: (taskId, status, result) => {
+    return api.put(`/attendance/task/${taskId}`, { status, result });
   }
 };
 

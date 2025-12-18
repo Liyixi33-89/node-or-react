@@ -155,26 +155,71 @@ class AttendanceService {
       const dateKey = this.getCurrentEffectiveDate();
       const record = await Attendance.findTodayRecord(userId, dateKey);
 
+      // 获取当前时间（小时和分钟）
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      const currentTimeInMinutes = currentHour * 60 + currentMinute;
+      const checkInDeadline = 9 * 60 + 30; // 9:30 = 570分钟
+      
+      // 判断是否超过签到时间（9:30）
+      const isPastCheckInTime = currentTimeInMinutes > checkInDeadline;
+
       if (!record) {
+        // 如果超过9:30，自动判定为已签入（只能签退）
+        if (isPastCheckInTime) {
+          return {
+            success: true,
+            message: '已超过签到时间(9:30)，视为已签入',
+            data: {
+              status: 'not_checked_in',
+              canCheckIn: false,  // 不能签入
+              canCheckOut: true,  // 可以签退
+              date: dateKey,
+              hasCheckedInToday: true,  // 视为已签入
+              isPastCheckInTime: true
+            }
+          };
+        }
+        
+        // 未超过9:30，正常显示未签入状态
         return {
           success: true,
           message: '今天还未签到',
           data: {
             status: 'not_checked_in',
-            canCheckIn: true,
-            canCheckOut: false,
-            date: dateKey
+            canCheckIn: true,  // 可以签入
+            canCheckOut: false,  // 不能签退
+            date: dateKey,
+            hasCheckedInToday: false,  // 今天未签入
+            isPastCheckInTime: false
           }
         };
       }
+
+      // 检查是否有签入记录
+      // 判断逻辑：
+      // 1. 主记录的status为'checked_in'，说明已经签入
+      // 2. 或者checkoutData中有成功的签入记录
+      const hasCheckedInToday = record.status === 'checked_in' || 
+                                (record.checkoutData && 
+                                 record.checkoutData.operationType === 'check_in' && 
+                                 record.checkoutData.status === 'success');
+
+      // 签退逻辑：
+      // 1. 如果已经签入（status === 'checked_in'），可以签退
+      // 2. 如果超过9:30，即使没有签入，也可以签退
+      const canCheckOut = record.status === 'checked_in' || isPastCheckInTime;
 
       return {
         success: true,
         message: '获取状态成功',
         data: {
           ...this.formatRecord(record),
-          canCheckIn: false,
-          canCheckOut: record.status === 'checked_in'
+          canCheckIn: !hasCheckedInToday && !isPastCheckInTime,  // 已签入或超过9:30则不能再签入
+          canCheckOut,  // 已签入或超过9:30可以签退
+          hasCheckedInToday: hasCheckedInToday || isPastCheckInTime,  // 已签入或超过9:30视为已签入
+          isPastCheckInTime  // 是否超过签到时间
         }
       };
     } catch (error) {
