@@ -252,28 +252,26 @@ router.post('/trigger-checkin', async (ctx) => {
 
     console.log(`✅ 创建签入任务: ${task._id}, 用户: ${username}`);
 
-    // 调用Python HTTP服务器，传递taskId
-    try {
-      const pythonResponse = await axios.post(`${config.pythonServiceUrl}/trigger/checkin`, {
-        userId,
-        username,
-        taskId: task._id.toString()
-      }, {
-        timeout: 5000
-      });
+    // 如果配置了Python服务URL，则尝试直接调用（本地开发模式）
+    // 否则只创建任务，等待轮询器执行（任务轮询模式）
+    if (config.pythonServiceUrl && config.pythonServiceUrl !== 'none') {
+      try {
+        const pythonResponse = await axios.post(`${config.pythonServiceUrl}/trigger/checkin`, {
+          userId,
+          username,
+          taskId: task._id.toString()
+        }, {
+          timeout: 5000
+        });
 
-      console.log(`✅ 已通知Python脚本执行任务: ${task._id}`);
-    } catch (pythonError) {
-      console.error('❌ 调用Python服务失败:', pythonError.message);
-      // 更新任务状态为failed
-      await Task.findByIdAndUpdate(task._id, {
-        status: 'failed',
-        completedAt: new Date(),
-        result: {
-          success: false,
-          error: '无法连接到Python服务，请确认Python脚本正在运行'
-        }
-      });
+        console.log(`✅ 已通知Python脚本执行任务: ${task._id}`);
+      } catch (pythonError) {
+        console.error('❌ 调用Python服务失败:', pythonError.message);
+        console.log('💡 任务已创建，等待轮询器执行');
+        // 不更新为failed，让轮询器来执行
+      }
+    } else {
+      console.log('💡 任务轮询模式：任务已创建，等待轮询器执行');
     }
 
     ctx.body = {
@@ -335,28 +333,26 @@ router.post('/trigger-checkout', async (ctx) => {
 
     console.log(`✅ 创建签出任务: ${task._id}, 用户: ${username}`);
 
-    // 调用Python HTTP服务器，传递taskId
-    try {
-      const pythonResponse = await axios.post(`${config.pythonServiceUrl}/trigger/checkout`, {
-        userId,
-        username,
-        taskId: task._id.toString()
-      }, {
-        timeout: 5000
-      });
+    // 如果配置了Python服务URL，则尝试直接调用（本地开发模式）
+    // 否则只创建任务，等待轮询器执行（任务轮询模式）
+    if (config.pythonServiceUrl && config.pythonServiceUrl !== 'none') {
+      try {
+        const pythonResponse = await axios.post(`${config.pythonServiceUrl}/trigger/checkout`, {
+          userId,
+          username,
+          taskId: task._id.toString()
+        }, {
+          timeout: 5000
+        });
 
-      console.log(`✅ 已通知Python脚本执行任务: ${task._id}`);
-    } catch (pythonError) {
-      console.error('❌ 调用Python服务失败:', pythonError.message);
-      // 更新任务状态为failed
-      await Task.findByIdAndUpdate(task._id, {
-        status: 'failed',
-        completedAt: new Date(),
-        result: {
-          success: false,
-          error: '无法连接到Python服务，请确认Python脚本正在运行'
-        }
-      });
+        console.log(`✅ 已通知Python脚本执行任务: ${task._id}`);
+      } catch (pythonError) {
+        console.error('❌ 调用Python服务失败:', pythonError.message);
+        console.log('💡 任务已创建，等待轮询器执行');
+        // 不更新为failed，让轮询器来执行
+      }
+    } else {
+      console.log('💡 任务轮询模式：任务已创建，等待轮询器执行');
     }
 
     ctx.body = {
