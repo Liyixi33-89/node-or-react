@@ -254,7 +254,7 @@ router.post('/trigger-checkin', async (ctx) => {
 
     // 调用Python HTTP服务器，传递taskId
     try {
-      const pythonResponse = await axios.post('http://localhost:5001/trigger/checkin', {
+      const pythonResponse = await axios.post(`${config.pythonServiceUrl}/trigger/checkin`, {
         userId,
         username,
         taskId: task._id.toString()
@@ -337,7 +337,7 @@ router.post('/trigger-checkout', async (ctx) => {
 
     // 调用Python HTTP服务器，传递taskId
     try {
-      const pythonResponse = await axios.post('http://localhost:5001/trigger/checkout', {
+      const pythonResponse = await axios.post(`${config.pythonServiceUrl}/trigger/checkout`, {
         userId,
         username,
         taskId: task._id.toString()
@@ -516,6 +516,43 @@ router.put('/task/:taskId', async (ctx) => {
     ctx.body = {
       success: false,
       message: '更新任务失败'
+    };
+  }
+});
+
+/**
+ * 获取待执行的任务（用于任务轮询模式）
+ * GET /api/attendance/pending-tasks
+ * Query: { userId?: string }
+ */
+router.get('/pending-tasks', async (ctx) => {
+  try {
+    const { userId } = ctx.query;
+    
+    // 构建查询条件
+    const query = { status: 'pending' };
+    if (userId) {
+      query.userId = userId;
+    }
+    
+    // 查询待执行的任务，按创建时间排序
+    const tasks = await Task.find(query)
+      .sort({ createdAt: 1 })
+      .limit(10);  // 最多返回10个任务
+    
+    console.log(`📋 查询待执行任务: 找到 ${tasks.length} 个任务`);
+    
+    ctx.body = {
+      success: true,
+      data: tasks,
+      count: tasks.length
+    };
+  } catch (error) {
+    console.error('查询待执行任务失败:', error);
+    ctx.status = 500;
+    ctx.body = {
+      success: false,
+      message: '查询待执行任务失败'
     };
   }
 });

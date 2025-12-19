@@ -134,7 +134,7 @@ function App() {
       attempts++;
       
       try {
-        const response = await attendanceAPI.getTaskStatus(userInfo.userId);
+        const response = await attendanceAPI.getTaskStatus(taskId);
         
         if (response.success) {
           const task = response.task;
