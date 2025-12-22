@@ -548,11 +548,8 @@ function App() {
                         {record.hasCaptcha ? (
                           <div className="captcha-info">
                             <div className="captcha-code">
-                              {record.captchaCode ? `验证码: ${record.captchaCode}` : '有验证码'}
+                              {record.captchaResult ? `验证码: ${record.captchaResult}` : '有验证码'}
                             </div>
-                            <span className={`captcha-result ${record.captchaResult === 'success' ? 'success' : 'failed'}`}>
-                              {record.captchaResult === 'success' ? '✅ 识别成功' : '❌ 识别失败'}
-                            </span>
                           </div>
                         ) : (
                           <span className="not-applicable">无验证码</span>
