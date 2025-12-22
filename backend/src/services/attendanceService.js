@@ -199,9 +199,10 @@ class AttendanceService {
 
       // 检查是否有签入记录
       // 判断逻辑：
-      // 1. 主记录的status为'checked_in'，说明已经签入
+      // 1. 主记录的status为'checked_in'或'checked_out'，说明已经签入过
       // 2. 或者checkoutData中有成功的签入记录
       const hasCheckedInToday = record.status === 'checked_in' || 
+                                record.status === 'checked_out' ||
                                 (record.checkoutData && 
                                  record.checkoutData.operationType === 'check_in' && 
                                  record.checkoutData.status === 'success');
@@ -308,6 +309,7 @@ class AttendanceService {
     // 添加签出数据信息
     if (record.checkoutData) {
       formatted.checkoutData = {
+        operationType: record.checkoutData.operationType,  // 添加操作类型
         status: record.checkoutData.status,
         operationTime: record.checkoutData.operationTime ? 
           moment(record.checkoutData.operationTime).format('YYYY-MM-DD HH:mm:ss') : null,
@@ -359,16 +361,24 @@ class AttendanceService {
           operationSource: checkoutData.operationSource || 'auto'
         };
 
-        // 如果签出成功，同时更新签退时间
+        // 根据操作类型和状态更新记录
         if (checkoutData.status === 'success') {
-          newRecord.checkOutTime = now.toDate();
-          newRecord.status = 'checked_out';
+          const operationType = checkoutData.operationType || 'check_out';
           
-          // 计算工作时长
-          const checkInMoment = moment(newRecord.checkInTime);
-          const duration = moment.duration(now.diff(checkInMoment));
-          newRecord.workHours = Math.floor(duration.asHours());
-          newRecord.workMinutes = duration.minutes();
+          if (operationType === 'check_in') {
+            // 签入成功：只更新状态为已签入
+            newRecord.status = 'checked_in';
+          } else if (operationType === 'check_out') {
+            // 签出成功：更新签退时间和状态
+            newRecord.checkOutTime = now.toDate();
+            newRecord.status = 'checked_out';
+            
+            // 计算工作时长
+            const checkInMoment = moment(newRecord.checkInTime);
+            const duration = moment.duration(now.diff(checkInMoment));
+            newRecord.workHours = Math.floor(duration.asHours());
+            newRecord.workMinutes = duration.minutes();
+          }
         }
 
         await newRecord.save();
@@ -392,16 +402,28 @@ class AttendanceService {
         operationSource: checkoutData.operationSource || 'auto'
       };
 
-      // 如果签出成功，同时更新签退时间
+      // 根据操作类型和状态更新记录
       if (checkoutData.status === 'success') {
-        record.checkOutTime = now.toDate();
-        record.status = 'checked_out';
+        const operationType = checkoutData.operationType || 'check_out';
         
-        // 计算工作时长
-        const checkInMoment = moment(record.checkInTime);
-        const duration = moment.duration(now.diff(checkInMoment));
-        record.workHours = Math.floor(duration.asHours());
-        record.workMinutes = duration.minutes();
+        if (operationType === 'check_in') {
+          // 签入成功：只更新状态为已签入（不修改签退时间）
+          record.status = 'checked_in';
+          // 清空之前可能存在的签退时间
+          record.checkOutTime = null;
+          record.workHours = 0;
+          record.workMinutes = 0;
+        } else if (operationType === 'check_out') {
+          // 签出成功：更新签退时间和状态
+          record.checkOutTime = now.toDate();
+          record.status = 'checked_out';
+          
+          // 计算工作时长
+          const checkInMoment = moment(record.checkInTime);
+          const duration = moment.duration(now.diff(checkInMoment));
+          record.workHours = Math.floor(duration.asHours());
+          record.workMinutes = duration.minutes();
+        }
       }
 
       await record.save();
