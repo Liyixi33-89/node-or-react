@@ -235,6 +235,9 @@ else
         REDHAT_VERSION=7
     elif [[ "$OS_NAME" == "centos" ]] || [[ "$OS_NAME" == "rhel" ]]; then
         REDHAT_VERSION=${OS_VERSION%%.*}
+    elif [[ "$OS_NAME" == "opencloudos" ]] || [[ "$OS_NAME" == "openEuler" ]] || [[ "$OS_NAME" == "anolis" ]]; then
+        # OpenCloudOS / openEuler / Anolis 使用主版本号对应的 RHEL 仓库
+        REDHAT_VERSION=${OS_VERSION%%.*}
     else
         # 默认使用 7
         REDHAT_VERSION=7
@@ -364,30 +367,46 @@ else
             echo "  ✅ Nginx 安装完成（使用官方仓库）"
         fi
     else
-        # 非阿里云服务器，检查标准 EPEL
-        echo "  检查 EPEL 仓库..."
-        if ! rpm -qa | grep -q epel-release; then
-            echo "  安装 EPEL 仓库..."
-            yum install -y epel-release
-            echo "  ✅ EPEL 仓库安装完成"
-        else
-            echo "  ✓ EPEL 仓库已安装"
-        fi
-        
-        echo "  安装 Nginx..."
+        # 非阿里云服务器
         # 如果存在 Docker 仓库，禁用它以避免安装被阻塞
         DISABLE_REPOS=""
         if [ -f /etc/yum.repos.d/docker-ce.repo ]; then
             DISABLE_REPOS="--disablerepo=docker-ce-stable"
         fi
-        
-        if yum install -y nginx $DISABLE_REPOS; then
+
+        # 检测是否为 OpenCloudOS / openEuler / Anolis（不支持 epel-release）
+        SKIP_EPEL=false
+        if [ -f /etc/os-release ]; then
+            . /etc/os-release
+            if [[ "$ID" == "opencloudos" ]] || [[ "$ID" == "openEuler" ]] || [[ "$ID" == "anolis" ]]; then
+                SKIP_EPEL=true
+                echo "  检测到 $ID，跳过 EPEL，直接使用 dnf/官方仓库安装 Nginx..."
+            fi
+        fi
+
+        if [ "$SKIP_EPEL" = false ]; then
+            # 标准 EPEL 安装流程
+            echo "  检查 EPEL 仓库..."
+            if ! rpm -qa | grep -q epel-release; then
+                echo "  安装 EPEL 仓库..."
+                yum install -y epel-release
+                echo "  ✅ EPEL 仓库安装完成"
+            else
+                echo "  ✓ EPEL 仓库已安装"
+            fi
+        fi
+
+        echo "  安装 Nginx..."
+        if yum install -y nginx $DISABLE_REPOS 2>/dev/null || dnf install -y nginx $DISABLE_REPOS 2>/dev/null; then
             echo "  ✅ Nginx 安装完成"
         else
-            echo -e "  ${RED}❌ Nginx 安装失败，尝试使用官方仓库...${NC}"
+            echo -e "  ${YELLOW}⚠️  直接安装失败，尝试使用 Nginx 官方仓库...${NC}"
             create_nginx_repo
-            yum install -y nginx $DISABLE_REPOS
-            echo "  ✅ Nginx 安装完成（使用官方仓库）"
+            if yum install -y nginx $DISABLE_REPOS || dnf install -y nginx $DISABLE_REPOS; then
+                echo "  ✅ Nginx 安装完成（使用官方仓库）"
+            else
+                echo -e "  ${RED}❌ Nginx 安装失败，请手动安装${NC}"
+            fi
         fi
     fi
     
